@@ -55,6 +55,32 @@ def login():
         return jsonify({'token': access_token}), 200
     return make_response('could not verify', 401, {'WWW.Authentication': 'Basic realm: "login required"'})
 
+#rekomendasi furniture
+@app.route("/api/v1/rekomendasi", methods=["POST"])
+def rekomendasi():
+    
+    price = request.json.get('price', None)
+    bobot = request.json.get('bobot', None)
+    convert_price = (float(price)*(float(bobot)/100))/16000
+
+    connection_cursor.execute("select name,category,price,short_description,link from ikea where price <= %s", [convert_price])
+    furniture = connection_cursor.fetchall()
+    furList = []
+    for i in range(len(furniture)):
+        rupiah = float(furniture[i][2]) * 16000
+
+        newItem = []
+        newItem.append(furniture[i][0])
+        newItem.append(furniture[i][1])
+        newItem.append(furniture[i][3])
+        newItem.append(furniture[i][4])
+        newItem.append(rupiah)
+        furList.append(newItem)
+
+    return jsonify(furList)
+
+
+
 
 # get all ikea
 @app.route("/api/v1/ikea", methods=["GET"])

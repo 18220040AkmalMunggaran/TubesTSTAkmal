@@ -4,7 +4,8 @@ import os
 import psycopg2
 from dotenv import load_dotenv
 
-CREATE_IKEA_TABLE = ("""CREATE TABLE IF NOT EXISTS ikea (
+CREATE_IKEA_TABLE = (
+    """CREATE TABLE IF NOT EXISTS ikea (
     id INT,
     item_id INT,
     name VARCHAR(21),
