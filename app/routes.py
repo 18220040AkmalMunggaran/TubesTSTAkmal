@@ -3,6 +3,7 @@ from flask import jsonify, request, make_response
 from flask_bcrypt import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from datetime import timedelta
+import requests
 
 @app.post("/api/ikea")
 def create_table_ikea():
@@ -10,7 +11,7 @@ def create_table_ikea():
         cursor.execute(CREATE_IKEA_TABLE)
         cursor.execute(INSERT_IKEA)
         connection.commit()
-        return make_response(jsonify({"message": "Users table created"}), 201)
+        return make_response(jsonify({"message": "Ikea table created"}), 201)
 
 @app.post("/api/users")
 def create_table_users():
@@ -40,25 +41,49 @@ def register():
 # login
 @app.route("/api/v1/login", methods=["POST"])
 def login():
-    autho = request.authorization
+    username = request.form['username']
+    password = request.form['password']
 
-    if not autho or not autho.username or not autho.password:
+    if not username or not password:
         return make_response('could not verify', 401, {'WWW.Authentication': 'Basic realm: "login required"'})
 
-    connection_cursor.execute("select * from users where username=%s", (autho.username,))
+    connection_cursor.execute("select * from users where username=%s", (username,))
     user = connection_cursor.fetchone()
     if not user:
         return make_response('could not verify', 401, {'WWW.Authentication': 'Basic realm: "login required"'})
 
-    if check_password_hash(user[1], autho.password):
-        access_token = create_access_token(identity=user[0], expires_delta=timedelta(seconds=30))
+    if check_password_hash(user[1], password):
+        access_token = create_access_token(identity=user[0], expires_delta=timedelta(minutes=500))
         return jsonify({'token': access_token}), 200
     return make_response('could not verify', 401, {'WWW.Authentication': 'Basic realm: "login required"'})
 
+#rekomendasi kamar
+@app.route("/api/v1/rekomendasi_kamar", methods=["POST"])
+@jwt_required()
+def rekomendasi_kamar():
+    #1. login api mbol
+    loginurl = requests.post("https://tubeststrayhan.azurewebsites.net/loginuser", data={"username":"admin","password":"admin"})
+    #2. tokennya disimpen ke sebuah variable
+    tokenMbol = loginurl.json().get("token")
+    
+    roomurl = 'https://tubeststrayhan.azurewebsites.net/roomarea'
+
+    #3. variable token itu dijadikan value dari header Authorization
+    jar = requests.cookies.RequestsCookieJar()
+    jar.set('access_token_cookie', tokenMbol, domain='tubeststrayhan.azurewebsites.net', path='/')
+    #4. request ke api area mbol
+    reqroomarea = requests.post(roomurl, cookies=jar, headers={'Authorization': 'Bearer '+tokenMbol, 'Content-Type': 'application/json'}, json={"landsize": "2000"})
+    roomarea = reqroomarea.json()
+
+    #print(response[0]["bathroom"])
+    
+    #5. hasilnya diolah deh buat response nya
+    return jsonify(roomarea)
+
 #rekomendasi furniture
 @app.route("/api/v1/rekomendasi", methods=["POST"])
+@jwt_required()
 def rekomendasi():
-    
     price = request.json.get('price', None)
     bobot = request.json.get('bobot', None)
     convert_price = (float(price)*(float(bobot)/100))/16000
@@ -69,12 +94,14 @@ def rekomendasi():
     for i in range(len(furniture)):
         rupiah = float(furniture[i][2]) * 16000
 
-        newItem = []
-        newItem.append(furniture[i][0])
-        newItem.append(furniture[i][1])
-        newItem.append(furniture[i][3])
-        newItem.append(furniture[i][4])
-        newItem.append(rupiah)
+        newItem = {
+            "name": furniture[i][0],
+            "category": furniture[i][1],
+            "price": rupiah,
+            "short_description": furniture[i][3],
+            "link": furniture[i][4]
+        }
+        
         furList.append(newItem)
 
     return jsonify(furList)

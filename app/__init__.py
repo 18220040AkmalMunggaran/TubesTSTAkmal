@@ -4,8 +4,7 @@ import os
 import psycopg2
 from dotenv import load_dotenv
 
-CREATE_IKEA_TABLE = (
-    """CREATE TABLE IF NOT EXISTS ikea (
+CREATE_IKEA_TABLE = ("""CREATE TABLE IF NOT EXISTS ikea (
     id INT,
     item_id INT,
     name VARCHAR(21),
@@ -41,6 +40,7 @@ app = Flask(__name__)
 url = os.getenv('DATABASE_URL')
 connection = psycopg2.connect(host=host, database=databae, user=user, password=password)
 connection_cursor = connection.cursor()
+
 app.config['JWT_SECRET_KEY'] = 'secret'
 jwt = JWTManager(app)
 
