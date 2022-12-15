@@ -53,7 +53,7 @@ def login():
         return make_response('could not verify', 401, {'WWW.Authentication': 'Basic realm: "login required"'})
 
     if check_password_hash(user[1], password):
-        access_token = create_access_token(identity=user[0], expires_delta=timedelta(minutes=500))
+        access_token = create_access_token(identity=user[0], expires_delta=timedelta(minutes=5))
         return jsonify({'token': access_token}), 200
     return make_response('could not verify', 401, {'WWW.Authentication': 'Basic realm: "login required"'})
 
@@ -65,20 +65,40 @@ def rekomendasi_kamar():
     loginurl = requests.post("https://tubeststrayhan.azurewebsites.net/loginuser", data={"username":"admin","password":"admin"})
     #2. tokennya disimpen ke sebuah variable
     tokenMbol = loginurl.json().get("token")
-    
     roomurl = 'https://tubeststrayhan.azurewebsites.net/roomarea'
 
     #3. variable token itu dijadikan value dari header Authorization
     jar = requests.cookies.RequestsCookieJar()
     jar.set('access_token_cookie', tokenMbol, domain='tubeststrayhan.azurewebsites.net', path='/')
-    #4. request ke api area mbol
-    reqroomarea = requests.post(roomurl, cookies=jar, headers={'Authorization': 'Bearer '+tokenMbol, 'Content-Type': 'application/json'}, json={"landsize": "2000"})
-    roomarea = reqroomarea.json()
 
-    #print(response[0]["bathroom"])
+    #4. request ke api area mbol
+    landsize = request.form['landsize']
+    bedroom = request.form['bedroom']
+    reqroomarea = requests.post(roomurl, cookies=jar, headers={'Authorization': 'Bearer '+tokenMbol, 'Content-Type': 'application/json'}, json={"landsize": landsize, "bedroom": bedroom})
     
     #5. hasilnya diolah deh buat response nya
-    return jsonify(roomarea)
+    roomarea = reqroomarea.json()
+    #print(roomarea[0]["bathroom"])
+    luaskamar = roomarea[0]["bedroom_area"]
+
+    connection_cursor.execute("select name, category, price, link, height, width, height * width from ikea where category = 'Beds' and height * width <= %s", [luaskamar])
+    datakasur = connection_cursor.fetchall()
+    listkasur = []
+    for i in range(len(datakasur)):
+        # luaskasur = float(datakasur[i][0]) * float(datakasur[i][1])
+        # listkasur.append(luaskasur)
+        rupiah = float(datakasur[i][2]) * 16000
+        newItem = {
+            "luaskamar": luaskamar,
+            "name": datakasur[i][0],
+            "category": datakasur[i][1],
+            "price": rupiah,
+            "link": datakasur[i][3],
+            "luas_kasur": datakasur [i][6]
+        }
+
+        listkasur.append(newItem)
+    return jsonify(listkasur)
 
 #rekomendasi furniture
 @app.route("/api/v1/rekomendasi", methods=["POST"])
